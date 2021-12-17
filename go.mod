@@ -7,7 +7,7 @@ require (
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.16.0
 	k8s.io/api v0.22.2
-	k8s.io/apimachinery v0.22.2
+	k8s.io/apimachinery v0.22.5
 	k8s.io/client-go v0.22.2
 	sigs.k8s.io/controller-runtime v0.10.2
 )
@@ -50,7 +50,7 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.19.0 // indirect
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83 // indirect
-	golang.org/x/net v0.0.0-20210520170846-37e1c6afe023 // indirect
+	golang.org/x/net v0.0.0-20211209124913-491a49abca63 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	golang.org/x/sys v0.0.0-20210817190340-bfb29a6856f2 // indirect
 	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d // indirect
@@ -67,7 +67,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.22.2 // indirect
 	k8s.io/component-base v0.22.2 // indirect
 	k8s.io/klog/v2 v2.9.0 // indirect
-	k8s.io/kube-openapi v0.0.0-20210421082810-95288971da7e // indirect
+	k8s.io/kube-openapi v0.0.0-20211109043538-20434351676c // indirect
 	k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.1.2 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
