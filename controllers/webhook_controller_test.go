@@ -772,9 +772,7 @@ func TestLoadServiceBindings(t *testing.T) {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(servicebindingv1beta1.AddToScheme(scheme))
 
-	webhook := dieadmissionregistrationv1.ValidatingWebhookConfigurationBlank.
-		APIVersion("admissionregistration.k8s.io").
-		Kind("ValidatingWebhookConfiguration")
+	webhook := dieadmissionregistrationv1.ValidatingWebhookConfigurationBlank
 
 	serviceBinding := dieservicebindingv1beta1.ServiceBindingBlank.
 		MetadataDie(func(d *diemetav1.ObjectMetaDie) {
@@ -796,7 +794,7 @@ func TestLoadServiceBindings(t *testing.T) {
 
 	rts := rtesting.SubReconcilerTests[client.Object]{
 		"list all servicebindings": {
-			Resource: webhook.DieReleaseUnstructured(),
+			Resource: webhook,
 			GivenObjects: []client.Object{
 				serviceBinding,
 			},
@@ -807,7 +805,7 @@ func TestLoadServiceBindings(t *testing.T) {
 			},
 		},
 		"error listing all servicebindings": {
-			Resource: webhook.DieReleaseUnstructured(),
+			Resource: webhook,
 			GivenObjects: []client.Object{
 				serviceBinding,
 			},
@@ -829,9 +827,7 @@ func TestInterceptGVKs(t *testing.T) {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(servicebindingv1beta1.AddToScheme(scheme))
 
-	webhook := dieadmissionregistrationv1.ValidatingWebhookConfigurationBlank.
-		APIVersion("admissionregistration.k8s.io").
-		Kind("ValidatingWebhookConfiguration")
+	webhook := dieadmissionregistrationv1.ValidatingWebhookConfigurationBlank
 
 	serviceBinding := dieservicebindingv1beta1.ServiceBindingBlank.
 		MetadataDie(func(d *diemetav1.ObjectMetaDie) {
@@ -853,7 +849,7 @@ func TestInterceptGVKs(t *testing.T) {
 
 	rts := rtesting.SubReconcilerTests[client.Object]{
 		"collect workload gvks": {
-			Resource: webhook.DieReleaseUnstructured(),
+			Resource: webhook,
 			GivenStashedValues: map[reconcilers.StashKey]interface{}{
 				controllers.ServiceBindingsStashKey: []servicebindingv1beta1.ServiceBinding{
 					serviceBinding.DieRelease(),
@@ -866,7 +862,7 @@ func TestInterceptGVKs(t *testing.T) {
 			},
 		},
 		"append workload gvks": {
-			Resource: webhook.DieReleaseUnstructured(),
+			Resource: webhook,
 			GivenStashedValues: map[reconcilers.StashKey]interface{}{
 				controllers.ServiceBindingsStashKey: []servicebindingv1beta1.ServiceBinding{
 					serviceBinding.DieRelease(),
@@ -918,7 +914,7 @@ func TestTriggerGVKs(t *testing.T) {
 
 	rts := rtesting.SubReconcilerTests[client.Object]{
 		"collect service gvks": {
-			Resource: webhook.DieReleaseUnstructured(),
+			Resource: webhook,
 			GivenStashedValues: map[reconcilers.StashKey]interface{}{
 				controllers.ServiceBindingsStashKey: []servicebindingv1beta1.ServiceBinding{
 					serviceBinding.DieRelease(),
@@ -931,7 +927,7 @@ func TestTriggerGVKs(t *testing.T) {
 			},
 		},
 		"append service gvks": {
-			Resource: webhook.DieReleaseUnstructured(),
+			Resource: webhook,
 			GivenStashedValues: map[reconcilers.StashKey]interface{}{
 				controllers.ServiceBindingsStashKey: []servicebindingv1beta1.ServiceBinding{
 					serviceBinding.DieRelease(),
@@ -948,7 +944,7 @@ func TestTriggerGVKs(t *testing.T) {
 			},
 		},
 		"ignore direct binding": {
-			Resource: webhook.DieReleaseUnstructured(),
+			Resource: webhook,
 			GivenStashedValues: map[reconcilers.StashKey]interface{}{
 				controllers.ServiceBindingsStashKey: []servicebindingv1beta1.ServiceBinding{
 					serviceBinding.
@@ -987,7 +983,7 @@ func TestWebhookRules(t *testing.T) {
 
 	rts := rtesting.SubReconcilerTests[client.Object]{
 		"empty": {
-			Resource: webhook.DieReleaseUnstructured(),
+			Resource: webhook,
 			GivenStashedValues: map[reconcilers.StashKey]interface{}{
 				controllers.ObservedGVKsStashKey: []schema.GroupVersionKind{},
 			},
@@ -996,7 +992,7 @@ func TestWebhookRules(t *testing.T) {
 			},
 		},
 		"convert": {
-			Resource: webhook.DieReleaseUnstructured(),
+			Resource: webhook,
 			GivenStashedValues: map[reconcilers.StashKey]interface{}{
 				controllers.ObservedGVKsStashKey: []schema.GroupVersionKind{
 					{Group: "apps", Version: "v1", Kind: "Deployment"},
@@ -1022,7 +1018,7 @@ func TestWebhookRules(t *testing.T) {
 			},
 		},
 		"dedup versions": {
-			Resource: webhook.DieReleaseUnstructured(),
+			Resource: webhook,
 			GivenStashedValues: map[reconcilers.StashKey]interface{}{
 				controllers.ObservedGVKsStashKey: []schema.GroupVersionKind{
 					{Group: "apps", Version: "v1", Kind: "Deployment"},
@@ -1049,7 +1045,7 @@ func TestWebhookRules(t *testing.T) {
 			},
 		},
 		"merge resources of same group": {
-			Resource: webhook.DieReleaseUnstructured(),
+			Resource: webhook,
 			GivenStashedValues: map[reconcilers.StashKey]interface{}{
 				controllers.ObservedGVKsStashKey: []schema.GroupVersionKind{
 					{Group: "apps", Version: "v1", Kind: "StatefulSet"},
@@ -1078,7 +1074,7 @@ func TestWebhookRules(t *testing.T) {
 			},
 		},
 		"preserve resources of different group": {
-			Resource: webhook.DieReleaseUnstructured(),
+			Resource: webhook,
 			GivenStashedValues: map[reconcilers.StashKey]interface{}{
 				controllers.ObservedGVKsStashKey: []schema.GroupVersionKind{
 					{Group: "batch", Version: "v1", Kind: "Job"},
@@ -1115,7 +1111,7 @@ func TestWebhookRules(t *testing.T) {
 			},
 		},
 		"error on unknown resource": {
-			Resource: webhook.DieReleaseUnstructured(),
+			Resource: webhook,
 			GivenStashedValues: map[reconcilers.StashKey]interface{}{
 				controllers.ObservedGVKsStashKey: []schema.GroupVersionKind{
 					{Group: "foo", Version: "v1", Kind: "Bar"},
@@ -1124,7 +1120,7 @@ func TestWebhookRules(t *testing.T) {
 			ShouldErr: true,
 		},
 		"drop denied resources": {
-			Resource: webhook.DieReleaseUnstructured(),
+			Resource: webhook,
 			GivenStashedValues: map[reconcilers.StashKey]interface{}{
 				controllers.ObservedGVKsStashKey: []schema.GroupVersionKind{
 					{Group: "apps", Version: "v1", Kind: "Deployment"},
@@ -1138,7 +1134,7 @@ func TestWebhookRules(t *testing.T) {
 			},
 		},
 		"treat SelfSubjectAccessReview errors as denied": {
-			Resource: webhook.DieReleaseUnstructured(),
+			Resource: webhook,
 			GivenStashedValues: map[reconcilers.StashKey]interface{}{
 				controllers.ObservedGVKsStashKey: []schema.GroupVersionKind{
 					{Group: "apps", Version: "v1", Kind: "Deployment"},

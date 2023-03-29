@@ -2,7 +2,7 @@ module github.com/servicebinding/runtime
 
 go 1.19
 
-replace github.com/vmware-labs/reconciler-runtime => github.com/scothis/reconciler-runtime v0.4.1-0.20230329162113-e603c75989e8
+replace github.com/vmware-labs/reconciler-runtime => github.com/scothis/reconciler-runtime v0.4.1-0.20230329221714-b49ecc253011
 
 require (
 	dies.dev v0.7.0
