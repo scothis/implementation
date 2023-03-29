@@ -51,7 +51,7 @@ func TestServiceBindingReconciler(t *testing.T) {
 	name := "my-binding"
 	uid := types.UID("dde10100-d7b3-4cba-9430-51d60a8612a6")
 	secretName := "my-secret"
-	key := types.NamespacedName{Namespace: namespace, Name: name}
+	request := reconcilers.Request{NamespacedName: types.NamespacedName{Namespace: namespace, Name: name}}
 
 	podSpecableMapping := `{"versions":[{"version":"*","annotations":".spec.template.metadata.annotations","containers":[{"path":".spec.template.spec.initContainers[*]","name":".name","env":".env","volumeMounts":".volumeMounts"},{"path":".spec.template.spec.containers[*]","name":".name","env":".env","volumeMounts":".volumeMounts"}],"volumes":".spec.template.spec.volumes"}]}`
 
@@ -157,7 +157,7 @@ func TestServiceBindingReconciler(t *testing.T) {
 
 	rts := rtesting.ReconcilerTests{
 		"in sync": {
-			Key: key,
+			Request: request,
 			GivenObjects: []client.Object{
 				serviceBinding.
 					MetadataDie(func(d *diemetav1.ObjectMetaDie) {
@@ -181,7 +181,7 @@ func TestServiceBindingReconciler(t *testing.T) {
 			},
 		},
 		"newly created, resolves secret": {
-			Key: key,
+			Request: request,
 			GivenObjects: []client.Object{
 				serviceBinding,
 				workload,
@@ -215,7 +215,7 @@ func TestServiceBindingReconciler(t *testing.T) {
 			},
 		},
 		"has resolved secret, project into workload": {
-			Key: key,
+			Request: request,
 			GivenObjects: []client.Object{
 				serviceBinding.
 					MetadataDie(func(d *diemetav1.ObjectMetaDie) {
@@ -254,7 +254,7 @@ func TestServiceBindingReconciler(t *testing.T) {
 			},
 		},
 		"terminating": {
-			Key: key,
+			Request: request,
 			GivenObjects: []client.Object{
 				serviceBinding.
 					MetadataDie(func(d *diemetav1.ObjectMetaDie) {
@@ -330,7 +330,7 @@ func TestResolveBindingSecret(t *testing.T) {
 		},
 	}
 
-	rts := rtesting.SubReconcilerTests{
+	rts := rtesting.SubReconcilerTests[*servicebindingv1beta1.ServiceBinding]{
 		"in sync": {
 			Resource: serviceBinding.
 				SpecDie(func(d *dieservicebindingv1beta1.ServiceBindingSpecDie) {
@@ -501,7 +501,7 @@ func TestResolveBindingSecret(t *testing.T) {
 		},
 	}
 
-	rts.Run(t, scheme, func(t *testing.T, tc *rtesting.SubReconcilerTestCase, c reconcilers.Config) reconcilers.SubReconciler {
+	rts.Run(t, scheme, func(t *testing.T, tc *rtesting.SubReconcilerTestCase[*servicebindingv1beta1.ServiceBinding], c reconcilers.Config) reconcilers.SubReconciler[*servicebindingv1beta1.ServiceBinding] {
 		return controllers.ResolveBindingSecret()
 	})
 }
@@ -542,7 +542,7 @@ func TestResolveWorkload(t *testing.T) {
 			d.AddLabel("app", "not")
 		})
 
-	rts := rtesting.SubReconcilerTests{
+	rts := rtesting.SubReconcilerTests[*servicebindingv1beta1.ServiceBinding]{
 		"resolve named workload": {
 			Resource: serviceBinding.
 				SpecDie(func(d *dieservicebindingv1beta1.ServiceBindingSpecDie) {
@@ -726,7 +726,7 @@ func TestResolveWorkload(t *testing.T) {
 		},
 	}
 
-	rts.Run(t, scheme, func(t *testing.T, tc *rtesting.SubReconcilerTestCase, c reconcilers.Config) reconcilers.SubReconciler {
+	rts.Run(t, scheme, func(t *testing.T, tc *rtesting.SubReconcilerTestCase[*servicebindingv1beta1.ServiceBinding], c reconcilers.Config) reconcilers.SubReconciler[*servicebindingv1beta1.ServiceBinding] {
 		return controllers.ResolveWorkloads()
 	})
 }
@@ -840,7 +840,7 @@ func TestProjectBinding(t *testing.T) {
 	unstructured.SetNestedSlice(unprojectedWorkload.UnstructuredContent(), containers, "spec", "template", "spec", "containers")
 	unstructured.SetNestedSlice(unprojectedWorkload.UnstructuredContent(), []interface{}{}, "spec", "template", "spec", "volumes")
 
-	rts := rtesting.SubReconcilerTests{
+	rts := rtesting.SubReconcilerTests[*servicebindingv1beta1.ServiceBinding]{
 		"project workload": {
 			Resource: serviceBinding.
 				SpecDie(func(d *dieservicebindingv1beta1.ServiceBindingSpecDie) {
@@ -892,7 +892,7 @@ func TestProjectBinding(t *testing.T) {
 		},
 	}
 
-	rts.Run(t, scheme, func(t *testing.T, tc *rtesting.SubReconcilerTestCase, c reconcilers.Config) reconcilers.SubReconciler {
+	rts.Run(t, scheme, func(t *testing.T, tc *rtesting.SubReconcilerTestCase[*servicebindingv1beta1.ServiceBinding], c reconcilers.Config) reconcilers.SubReconciler[*servicebindingv1beta1.ServiceBinding] {
 		restMapper := c.RESTMapper().(*meta.DefaultRESTMapper)
 		restMapper.Add(schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}, meta.RESTScopeNamespace)
 		return controllers.ProjectBinding()
@@ -943,7 +943,7 @@ func TestPatchWorkloads(t *testing.T) {
 			})
 		})
 
-	rts := rtesting.SubReconcilerTests{
+	rts := rtesting.SubReconcilerTests[*servicebindingv1beta1.ServiceBinding]{
 		"in sync": {
 			Resource: serviceBinding.
 				StatusDie(func(d *dieservicebindingv1beta1.ServiceBindingStatusDie) {
@@ -1141,7 +1141,7 @@ func TestPatchWorkloads(t *testing.T) {
 		},
 	}
 
-	rts.Run(t, scheme, func(t *testing.T, tc *rtesting.SubReconcilerTestCase, c reconcilers.Config) reconcilers.SubReconciler {
+	rts.Run(t, scheme, func(t *testing.T, tc *rtesting.SubReconcilerTestCase[*servicebindingv1beta1.ServiceBinding], c reconcilers.Config) reconcilers.SubReconciler[*servicebindingv1beta1.ServiceBinding] {
 		return controllers.PatchWorkloads()
 	})
 }

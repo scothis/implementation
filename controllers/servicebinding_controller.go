@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctlr "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -44,12 +43,11 @@ import (
 //+kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 
 // ServiceBindingReconciler reconciles a ServiceBinding object
-func ServiceBindingReconciler(c reconcilers.Config) *reconcilers.ResourceReconciler {
-	return &reconcilers.ResourceReconciler{
-		Type: &servicebindingv1beta1.ServiceBinding{},
-		Reconciler: &reconcilers.WithFinalizer{
+func ServiceBindingReconciler(c reconcilers.Config) *reconcilers.ResourceReconciler[*servicebindingv1beta1.ServiceBinding] {
+	return &reconcilers.ResourceReconciler[*servicebindingv1beta1.ServiceBinding]{
+		Reconciler: &reconcilers.WithFinalizer[*servicebindingv1beta1.ServiceBinding]{
 			Finalizer: servicebindingv1beta1.GroupVersion.Group + "/finalizer",
-			Reconciler: reconcilers.Sequence{
+			Reconciler: reconcilers.Sequence[*servicebindingv1beta1.ServiceBinding]{
 				ResolveBindingSecret(),
 				ResolveWorkloads(),
 				ProjectBinding(),
@@ -61,8 +59,8 @@ func ServiceBindingReconciler(c reconcilers.Config) *reconcilers.ResourceReconci
 	}
 }
 
-func ResolveBindingSecret() reconcilers.SubReconciler {
-	return &reconcilers.SyncReconciler{
+func ResolveBindingSecret() reconcilers.SubReconciler[*servicebindingv1beta1.ServiceBinding] {
+	return &reconcilers.SyncReconciler[*servicebindingv1beta1.ServiceBinding]{
 		Name: "ResolveBindingSecret",
 		Sync: func(ctx context.Context, resource *servicebindingv1beta1.ServiceBinding) error {
 			c := reconcilers.RetrieveConfigOrDie(ctx)
@@ -119,11 +117,11 @@ func ResolveBindingSecret() reconcilers.SubReconciler {
 	}
 }
 
-func ResolveWorkloads() reconcilers.SubReconciler {
-	return &reconcilers.SyncReconciler{
+func ResolveWorkloads() reconcilers.SubReconciler[*servicebindingv1beta1.ServiceBinding] {
+	return &reconcilers.SyncReconciler[*servicebindingv1beta1.ServiceBinding]{
 		Name:                   "ResolveWorkloads",
 		SyncDuringFinalization: true,
-		Sync: func(ctx context.Context, resource *servicebindingv1beta1.ServiceBinding) (reconcile.Result, error) {
+		SyncWithResult: func(ctx context.Context, resource *servicebindingv1beta1.ServiceBinding) (reconcile.Result, error) {
 			c := reconcilers.RetrieveConfigOrDie(ctx)
 
 			ref := corev1.ObjectReference{
@@ -164,8 +162,8 @@ func ResolveWorkloads() reconcilers.SubReconciler {
 
 //+kubebuilder:rbac:groups=servicebinding.io,resources=clusterworkloadresourcemappings,verbs=get;list;watch
 
-func ProjectBinding() reconcilers.SubReconciler {
-	return &reconcilers.SyncReconciler{
+func ProjectBinding() reconcilers.SubReconciler[*servicebindingv1beta1.ServiceBinding] {
+	return &reconcilers.SyncReconciler[*servicebindingv1beta1.ServiceBinding]{
 		Name:                   "ProjectBinding",
 		SyncDuringFinalization: true,
 		Sync: func(ctx context.Context, resource *servicebindingv1beta1.ServiceBinding) error {
@@ -201,16 +199,15 @@ func ProjectBinding() reconcilers.SubReconciler {
 	}
 }
 
-func PatchWorkloads() reconcilers.SubReconciler {
-	workloadManager := &reconcilers.ResourceManager{
+func PatchWorkloads() reconcilers.SubReconciler[*servicebindingv1beta1.ServiceBinding] {
+	workloadManager := &reconcilers.ResourceManager[*unstructured.Unstructured]{
 		Name: "PatchWorkloads",
-		Type: &unstructured.Unstructured{},
 		MergeBeforeUpdate: func(current, desired *unstructured.Unstructured) {
 			current.SetUnstructuredContent(desired.UnstructuredContent())
 		},
 	}
 
-	return &reconcilers.SyncReconciler{
+	return &reconcilers.SyncReconciler[*servicebindingv1beta1.ServiceBinding]{
 		Name:                   "PatchWorkloads",
 		SyncDuringFinalization: true,
 		Sync: func(ctx context.Context, resource *servicebindingv1beta1.ServiceBinding) error {
@@ -222,8 +219,8 @@ func PatchWorkloads() reconcilers.SubReconciler {
 			}
 
 			for i := range workloads {
-				workload := workloads[i].(client.Object)
-				projectedWorkload := projectedWorkloads[i].(client.Object)
+				workload := workloads[i].(*unstructured.Unstructured)
+				projectedWorkload := projectedWorkloads[i].(*unstructured.Unstructured)
 				if workload.GetUID() != projectedWorkload.GetUID() || workload.GetResourceVersion() != projectedWorkload.GetResourceVersion() {
 					panic(fmt.Errorf("workload and projectedWorkload must have the same uid and resourceVersion"))
 				}

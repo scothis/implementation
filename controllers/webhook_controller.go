@@ -49,23 +49,25 @@ import (
 //+kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 
 // AdmissionProjector reconciles a MutatingWebhookConfiguration object
-func AdmissionProjectorReconciler(c reconcilers.Config, name string, accessChecker rbac.AccessChecker) *reconcilers.AggregateReconciler {
+func AdmissionProjectorReconciler(c reconcilers.Config, name string, accessChecker rbac.AccessChecker) *reconcilers.AggregateReconciler[*admissionregistrationv1.MutatingWebhookConfiguration] {
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name: name,
 		},
 	}
 
-	return &reconcilers.AggregateReconciler{
+	return &reconcilers.AggregateReconciler[*admissionregistrationv1.MutatingWebhookConfiguration]{
 		Name:    "AdmissionProjector",
-		Type:    &admissionregistrationv1.MutatingWebhookConfiguration{},
 		Request: req,
-		Reconciler: reconcilers.Sequence{
-			LoadServiceBindings(req),
-			InterceptGVKs(),
-			WebhookRules([]admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update}, accessChecker),
+		Reconciler: &reconcilers.CastResource[*admissionregistrationv1.MutatingWebhookConfiguration, client.Object]{
+			Type: &unstructured.Unstructured{},
+			Reconciler: reconcilers.Sequence[client.Object]{
+				LoadServiceBindings(req),
+				InterceptGVKs(),
+				WebhookRules([]admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update}, accessChecker),
+			},
 		},
-		DesiredResource: func(ctx context.Context, resource *admissionregistrationv1.MutatingWebhookConfiguration) (client.Object, error) {
+		DesiredResource: func(ctx context.Context, resource *admissionregistrationv1.MutatingWebhookConfiguration) (*admissionregistrationv1.MutatingWebhookConfiguration, error) {
 			if resource == nil || len(resource.Webhooks) != 1 {
 				// the webhook config isn't in a form that we expect, ignore it
 				return resource, nil
@@ -81,7 +83,7 @@ func AdmissionProjectorReconciler(c reconcilers.Config, name string, accessCheck
 			}
 			current.Webhooks[0].Rules = desired.Webhooks[0].Rules
 		},
-		Sanitize: func(resource *admissionregistrationv1.MutatingWebhookConfiguration) []admissionregistrationv1.RuleWithOperations {
+		Sanitize: func(resource *admissionregistrationv1.MutatingWebhookConfiguration) interface{} {
 			if resource == nil || len(resource.Webhooks) == 0 {
 				return nil
 			}
@@ -98,11 +100,10 @@ func AdmissionProjectorReconciler(c reconcilers.Config, name string, accessCheck
 	}
 }
 
-func AdmissionProjectorWebhook(c reconcilers.Config) *reconcilers.AdmissionWebhookAdapter {
-	return &reconcilers.AdmissionWebhookAdapter{
+func AdmissionProjectorWebhook(c reconcilers.Config) *reconcilers.AdmissionWebhookAdapter[*unstructured.Unstructured] {
+	return &reconcilers.AdmissionWebhookAdapter[*unstructured.Unstructured]{
 		Name: "AdmissionProjectorWebhook",
-		Type: &unstructured.Unstructured{},
-		Reconciler: &reconcilers.SyncReconciler{
+		Reconciler: &reconcilers.SyncReconciler[*unstructured.Unstructured]{
 			Sync: func(ctx context.Context, workload *unstructured.Unstructured) error {
 				c := reconcilers.RetrieveConfigOrDie(ctx)
 
@@ -157,24 +158,26 @@ func AdmissionProjectorWebhook(c reconcilers.Config) *reconcilers.AdmissionWebho
 //+kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 
 // TriggerReconciler reconciles a ValidatingWebhookConfiguration object
-func TriggerReconciler(c reconcilers.Config, name string, accessChecker rbac.AccessChecker) *reconcilers.AggregateReconciler {
+func TriggerReconciler(c reconcilers.Config, name string, accessChecker rbac.AccessChecker) *reconcilers.AggregateReconciler[*admissionregistrationv1.ValidatingWebhookConfiguration] {
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name: name,
 		},
 	}
 
-	return &reconcilers.AggregateReconciler{
+	return &reconcilers.AggregateReconciler[*admissionregistrationv1.ValidatingWebhookConfiguration]{
 		Name:    "Trigger",
-		Type:    &admissionregistrationv1.ValidatingWebhookConfiguration{},
 		Request: req,
-		Reconciler: reconcilers.Sequence{
-			LoadServiceBindings(req),
-			TriggerGVKs(),
-			InterceptGVKs(),
-			WebhookRules([]admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete}, accessChecker),
+		Reconciler: &reconcilers.CastResource[*admissionregistrationv1.ValidatingWebhookConfiguration, client.Object]{
+			Type: &unstructured.Unstructured{},
+			Reconciler: reconcilers.Sequence[client.Object]{
+				LoadServiceBindings(req),
+				TriggerGVKs(),
+				InterceptGVKs(),
+				WebhookRules([]admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete}, accessChecker),
+			},
 		},
-		DesiredResource: func(ctx context.Context, resource *admissionregistrationv1.ValidatingWebhookConfiguration) (client.Object, error) {
+		DesiredResource: func(ctx context.Context, resource *admissionregistrationv1.ValidatingWebhookConfiguration) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
 			if resource == nil || len(resource.Webhooks) != 1 {
 				// the webhook config isn't in a form that we expect, ignore it
 				return resource, nil
@@ -190,7 +193,7 @@ func TriggerReconciler(c reconcilers.Config, name string, accessChecker rbac.Acc
 			}
 			current.Webhooks[0].Rules = desired.Webhooks[0].Rules
 		},
-		Sanitize: func(resource *admissionregistrationv1.ValidatingWebhookConfiguration) []admissionregistrationv1.RuleWithOperations {
+		Sanitize: func(resource *admissionregistrationv1.ValidatingWebhookConfiguration) interface{} {
 			if resource == nil || len(resource.Webhooks) == 0 {
 				return nil
 			}
@@ -201,11 +204,11 @@ func TriggerReconciler(c reconcilers.Config, name string, accessChecker rbac.Acc
 	}
 }
 
-func TriggerWebhook(c reconcilers.Config, serviceBindingController controller.Controller) *reconcilers.AdmissionWebhookAdapter {
-	return &reconcilers.AdmissionWebhookAdapter{
+func TriggerWebhook(c reconcilers.Config, serviceBindingController controller.Controller) *reconcilers.AdmissionWebhookAdapter[*unstructured.Unstructured] {
+	return &reconcilers.AdmissionWebhookAdapter[*unstructured.Unstructured]{
 		Name: "AdmissionProjectorWebhook",
 		Type: &unstructured.Unstructured{},
-		Reconciler: &reconcilers.SyncReconciler{
+		Reconciler: &reconcilers.SyncReconciler[*unstructured.Unstructured]{
 			Sync: func(ctx context.Context, trigger *unstructured.Unstructured) error {
 				log := logr.FromContextOrDiscard(ctx)
 				c := reconcilers.RetrieveConfigOrDie(ctx)
@@ -243,8 +246,8 @@ func TriggerWebhook(c reconcilers.Config, serviceBindingController controller.Co
 	}
 }
 
-func LoadServiceBindings(req reconcile.Request) reconcilers.SubReconciler {
-	return &reconcilers.SyncReconciler{
+func LoadServiceBindings(req reconcile.Request) reconcilers.SubReconciler[client.Object] {
+	return &reconcilers.SyncReconciler[client.Object]{
 		Name: "LoadServiceBindings",
 		Sync: func(ctx context.Context, _ client.Object) error {
 			c := reconcilers.RetrieveConfigOrDie(ctx)
@@ -269,8 +272,8 @@ func LoadServiceBindings(req reconcile.Request) reconcilers.SubReconciler {
 	}
 }
 
-func InterceptGVKs() reconcilers.SubReconciler {
-	return &reconcilers.SyncReconciler{
+func InterceptGVKs() reconcilers.SubReconciler[client.Object] {
+	return &reconcilers.SyncReconciler[client.Object]{
 		Name: "InterceptGVKs",
 		Sync: func(ctx context.Context, _ client.Object) error {
 			serviceBindings := RetrieveServiceBindings(ctx)
@@ -289,8 +292,8 @@ func InterceptGVKs() reconcilers.SubReconciler {
 	}
 }
 
-func TriggerGVKs() reconcilers.SubReconciler {
-	return &reconcilers.SyncReconciler{
+func TriggerGVKs() reconcilers.SubReconciler[client.Object] {
+	return &reconcilers.SyncReconciler[client.Object]{
 		Name: "TriggerGVKs",
 		Sync: func(ctx context.Context, _ client.Object) error {
 			serviceBindings := RetrieveServiceBindings(ctx)
@@ -313,8 +316,8 @@ func TriggerGVKs() reconcilers.SubReconciler {
 	}
 }
 
-func WebhookRules(operations []admissionregistrationv1.OperationType, accessChecker rbac.AccessChecker) reconcilers.SubReconciler {
-	return &reconcilers.SyncReconciler{
+func WebhookRules(operations []admissionregistrationv1.OperationType, accessChecker rbac.AccessChecker) reconcilers.SubReconciler[client.Object] {
+	return &reconcilers.SyncReconciler[client.Object]{
 		Name: "WebhookRules",
 		Sync: func(ctx context.Context, _ client.Object) error {
 			log := logr.FromContextOrDiscard(ctx)
