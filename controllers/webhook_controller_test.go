@@ -794,7 +794,7 @@ func TestLoadServiceBindings(t *testing.T) {
 
 	rts := rtesting.SubReconcilerTests[client.Object]{
 		"list all servicebindings": {
-			Resource: webhook,
+			Resource: webhook.DieReleasePtr(),
 			GivenObjects: []client.Object{
 				serviceBinding,
 			},
@@ -805,7 +805,7 @@ func TestLoadServiceBindings(t *testing.T) {
 			},
 		},
 		"error listing all servicebindings": {
-			Resource: webhook,
+			Resource: webhook.DieReleasePtr(),
 			GivenObjects: []client.Object{
 				serviceBinding,
 			},
