@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	rduck "github.com/vmware-labs/reconciler-runtime/duck"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -31,13 +32,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
+	"github.com/servicebinding/runtime/apis/duck"
 	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 )
 
 // New creates a new resolver backed by a controller-runtime client
 func New(client client.Client) Resolver {
 	return &clusterResolver{
-		client: client,
+		client: rduck.NewDuckAwareClientWrapper(client),
 	}
 }
 
@@ -85,16 +87,21 @@ func (r *clusterResolver) LookupBindingSecret(ctx context.Context, serviceRef co
 		// direct secret reference
 		return serviceRef.Name, nil
 	}
-	service := &unstructured.Unstructured{}
-	service.SetAPIVersion(serviceRef.APIVersion)
-	service.SetKind(serviceRef.Kind)
-	if err := r.client.Get(ctx, client.ObjectKey{Namespace: serviceRef.Namespace, Name: serviceRef.Name}, service); err != nil {
+
+	service := &duck.ProvisionedService{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: serviceRef.APIVersion,
+			Kind:       serviceRef.Kind,
+		},
+	}
+	key := client.ObjectKey{
+		Namespace: serviceRef.Namespace,
+		Name:      serviceRef.Name,
+	}
+	if err := r.client.Get(ctx, key, service); err != nil {
 		return "", err
 	}
-	secretName, exists, err := unstructured.NestedString(service.UnstructuredContent(), "status", "binding", "name")
-	// treat missing values as empty
-	_ = exists
-	return secretName, err
+	return service.Status.Binding.Name, nil
 }
 
 func (r *clusterResolver) LookupWorkloads(ctx context.Context, workloadRef corev1.ObjectReference, selector *metav1.LabelSelector) ([]runtime.Object, error) {

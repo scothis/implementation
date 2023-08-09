@@ -22,16 +22,14 @@ limitations under the License.
 package v1beta1
 
 import (
+	"dies.dev/apis/meta/v1"
 	json "encoding/json"
 	fmtx "fmt"
-
-	v1 "dies.dev/apis/meta/v1"
+	apisv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
-
-	apisv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 )
 
 var ClusterWorkloadResourceMappingBlank = (&ClusterWorkloadResourceMappingDie{}).DieFeed(apisv1beta1.ClusterWorkloadResourceMapping{})

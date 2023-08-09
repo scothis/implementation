@@ -2,6 +2,8 @@ module github.com/servicebinding/runtime
 
 go 1.20
 
+replace github.com/vmware-labs/reconciler-runtime => github.com/scothis/reconciler-runtime v0.4.1-0.20230809234601-49fc8cfd120c
+
 require (
 	dies.dev v0.8.0
 	github.com/go-logr/logr v1.2.4
