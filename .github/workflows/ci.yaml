@@ -341,9 +341,8 @@ jobs:
     - name: Checkout conformance tests
       uses: actions/checkout@v4
       with:
-        # TODO use a release
-        repository: sadlerap/conformance.git
-        ref: fix-deployment-labels
+        repository: servicebinding/conformance.git
+        ref: v0.3.1
         fetch-depth: 1
         path: conformance-tests
 
