@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
 	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 )
@@ -43,6 +44,7 @@ type Resolver interface {
 	LookupBindingSecret(ctx context.Context, serviceRef corev1.ObjectReference) (string, error)
 
 	// LookupWorkloads returns the referenced objects. Often a unstructured Object is used to sidestep issues with schemes and registered
-	// types. The selector is mutually exclusive with the reference name.
-	LookupWorkloads(ctx context.Context, workloadRef corev1.ObjectReference, selector *metav1.LabelSelector) ([]runtime.Object, error)
+	// types. The selector is mutually exclusive with the reference name. The UID of the ServiceBinding is used to find resources that
+	// may have been previously bound but no longer match the query.
+	LookupWorkloads(ctx context.Context, workloadRef corev1.ObjectReference, selector *metav1.LabelSelector, uid types.UID) ([]runtime.Object, error)
 }

@@ -18,6 +18,7 @@ package resolver_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -31,12 +32,15 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
+	"github.com/servicebinding/runtime/projector"
 	"github.com/servicebinding/runtime/resolver"
 )
 
@@ -440,16 +444,19 @@ func TestClusterResolver_LookupWorkloads(t *testing.T) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
+	bindingUID := uuid.NewUUID()
+
 	tests := []struct {
 		name         string
 		givenObjects []client.Object
 		serviceRef   corev1.ObjectReference
 		selector     *metav1.LabelSelector
+		bindingUID   types.UID
 		expected     []runtime.Object
 		expectedErr  bool
 	}{
 		{
-			name:         "not found error",
+			name:         "not found",
 			givenObjects: []client.Object{},
 			serviceRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
@@ -457,7 +464,57 @@ func TestClusterResolver_LookupWorkloads(t *testing.T) {
 				Namespace:  "my-namespace",
 				Name:       "my-workload",
 			},
-			expectedErr: true,
+			bindingUID: bindingUID,
+			expected:   []runtime.Object{},
+		},
+		{
+			name: "found previously bound workload",
+			givenObjects: []client.Object{
+				&appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "my-namespace",
+						Name:      "previous-workload",
+						Annotations: map[string]string{
+							fmt.Sprintf("%s%s", projector.MappingAnnotationPrefix, bindingUID): "{}",
+						},
+					},
+				},
+			},
+			serviceRef: corev1.ObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Namespace:  "my-namespace",
+				Name:       "my-workload",
+			},
+			bindingUID: bindingUID,
+			expected: []runtime.Object{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "apps/v1",
+						"kind":       "Deployment",
+						"metadata": map[string]interface{}{
+							"name":      "previous-workload",
+							"namespace": "my-namespace",
+							"annotations": map[string]interface{}{
+								fmt.Sprintf("%s%s", projector.MappingAnnotationPrefix, bindingUID): "{}",
+							},
+						},
+						"spec": map[string]interface{}{
+							"selector": nil,
+							"strategy": map[string]interface{}{},
+							"template": map[string]interface{}{
+								"metadata": map[string]interface{}{
+									"creationTimestamp": nil,
+								},
+								"spec": map[string]interface{}{
+									"containers": nil,
+								},
+							},
+						},
+						"status": map[string]interface{}{},
+					},
+				},
+			},
 		},
 		{
 			name: "found workload from scheme",
@@ -475,6 +532,7 @@ func TestClusterResolver_LookupWorkloads(t *testing.T) {
 				Namespace:  "my-namespace",
 				Name:       "my-workload",
 			},
+			bindingUID: bindingUID,
 			expected: []runtime.Object{
 				&unstructured.Unstructured{
 					Object: map[string]interface{}{
@@ -521,6 +579,7 @@ func TestClusterResolver_LookupWorkloads(t *testing.T) {
 				Namespace:  "my-namespace",
 				Name:       "my-workload",
 			},
+			bindingUID: bindingUID,
 			expected: []runtime.Object{
 				&unstructured.Unstructured{
 					Object: map[string]interface{}{
@@ -575,6 +634,7 @@ func TestClusterResolver_LookupWorkloads(t *testing.T) {
 					"app": "my",
 				},
 			},
+			bindingUID: bindingUID,
 			expected: []runtime.Object{
 				&unstructured.Unstructured{
 					Object: map[string]interface{}{
@@ -683,6 +743,7 @@ func TestClusterResolver_LookupWorkloads(t *testing.T) {
 					"app": "my",
 				},
 			},
+			bindingUID: bindingUID,
 			expected: []runtime.Object{
 				&unstructured.Unstructured{
 					Object: map[string]interface{}{
@@ -724,7 +785,7 @@ func TestClusterResolver_LookupWorkloads(t *testing.T) {
 				Build()
 			resolver := resolver.New(client)
 
-			actual, err := resolver.LookupWorkloads(ctx, c.serviceRef, c.selector)
+			actual, err := resolver.LookupWorkloads(ctx, c.serviceRef, c.selector, c.bindingUID)
 
 			if (err != nil) != c.expectedErr {
 				t.Errorf("LookupWorkloads() expected err: %v", err)
