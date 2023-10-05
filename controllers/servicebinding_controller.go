@@ -23,7 +23,6 @@ import (
 	"github.com/vmware-labs/reconciler-runtime/apis"
 	"github.com/vmware-labs/reconciler-runtime/reconcilers"
 	"github.com/vmware-labs/reconciler-runtime/tracker"
-	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -66,13 +65,7 @@ func ResolveBindingSecret(hooks lifecycle.ServiceBindingHooks) reconcilers.SubRe
 		Sync: func(ctx context.Context, resource *servicebindingv1beta1.ServiceBinding) error {
 			c := reconcilers.RetrieveConfigOrDie(ctx)
 
-			ref := corev1.ObjectReference{
-				APIVersion: resource.Spec.Service.APIVersion,
-				Kind:       resource.Spec.Service.Kind,
-				Namespace:  resource.Namespace,
-				Name:       resource.Spec.Service.Name,
-			}
-			secretName, err := hooks.GetResolver(TrackingClient(c)).LookupBindingSecret(ctx, ref)
+			secretName, err := hooks.GetResolver(TrackingClient(c)).LookupBindingSecret(ctx, resource)
 			if err != nil {
 				if apierrs.IsNotFound(err) {
 					// leave Unknown, the provisioned service may be created shortly
@@ -143,13 +136,7 @@ func ResolveWorkloads(hooks lifecycle.ServiceBindingHooks) reconcilers.SubReconc
 			}
 			c.Tracker.TrackReference(trackingRef, resource)
 
-			ref := corev1.ObjectReference{
-				APIVersion: resource.Spec.Workload.APIVersion,
-				Kind:       resource.Spec.Workload.Kind,
-				Namespace:  resource.Namespace,
-				Name:       resource.Spec.Workload.Name,
-			}
-			workloads, err := hooks.GetResolver(c).LookupWorkloads(ctx, ref, resource.Spec.Workload.Selector, resource.UID)
+			workloads, err := hooks.GetResolver(c).LookupWorkloads(ctx, resource)
 			if err != nil {
 				if apierrs.IsForbidden(err) {
 					// set False, the operator needs to give access to the resource

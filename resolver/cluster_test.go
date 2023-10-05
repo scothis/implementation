@@ -25,14 +25,12 @@ import (
 	rtesting "github.com/vmware-labs/reconciler-runtime/testing"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -335,20 +333,26 @@ func TestClusterResolver_LookupBindingSecret(t *testing.T) {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	tests := []struct {
-		name         string
-		givenObjects []client.Object
-		serviceRef   corev1.ObjectReference
-		expected     string
-		expectedErr  bool
+		name           string
+		givenObjects   []client.Object
+		serviceBinding *servicebindingv1beta1.ServiceBinding
+		expected       string
+		expectedErr    bool
 	}{
 		{
 			name:         "direct binding",
 			givenObjects: []client.Object{},
-			serviceRef: corev1.ObjectReference{
-				APIVersion: "v1",
-				Kind:       "Secret",
-				Namespace:  "my-namespace",
-				Name:       "my-secret",
+			serviceBinding: &servicebindingv1beta1.ServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "my-namespace",
+				},
+				Spec: servicebindingv1beta1.ServiceBindingSpec{
+					Service: servicebindingv1beta1.ServiceBindingServiceReference{
+						APIVersion: "v1",
+						Kind:       "Secret",
+						Name:       "my-secret",
+					},
+				},
 			},
 			expected: "my-secret",
 		},
@@ -371,11 +375,17 @@ func TestClusterResolver_LookupBindingSecret(t *testing.T) {
 					},
 				},
 			},
-			serviceRef: corev1.ObjectReference{
-				APIVersion: "service.local/v1",
-				Kind:       "ProvisionedService",
-				Namespace:  "my-namespace",
-				Name:       "my-service",
+			serviceBinding: &servicebindingv1beta1.ServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "my-namespace",
+				},
+				Spec: servicebindingv1beta1.ServiceBindingSpec{
+					Service: servicebindingv1beta1.ServiceBindingServiceReference{
+						APIVersion: "service.local/v1",
+						Kind:       "ProvisionedService",
+						Name:       "my-service",
+					},
+				},
 			},
 			expected: "my-secret",
 		},
@@ -394,22 +404,34 @@ func TestClusterResolver_LookupBindingSecret(t *testing.T) {
 					},
 				},
 			},
-			serviceRef: corev1.ObjectReference{
-				APIVersion: "service.local/v1",
-				Kind:       "NotAProvisionedService",
-				Namespace:  "my-namespace",
-				Name:       "my-service",
+			serviceBinding: &servicebindingv1beta1.ServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "my-namespace",
+				},
+				Spec: servicebindingv1beta1.ServiceBindingSpec{
+					Service: servicebindingv1beta1.ServiceBindingServiceReference{
+						APIVersion: "service.local/v1",
+						Kind:       "NotAProvisionedService",
+						Name:       "my-service",
+					},
+				},
 			},
 			expected: "",
 		},
 		{
 			name:         "not found",
 			givenObjects: []client.Object{},
-			serviceRef: corev1.ObjectReference{
-				APIVersion: "service.local/v1",
-				Kind:       "ProvisionedService",
-				Namespace:  "my-namespace",
-				Name:       "my-service",
+			serviceBinding: &servicebindingv1beta1.ServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "my-namespace",
+				},
+				Spec: servicebindingv1beta1.ServiceBindingSpec{
+					Service: servicebindingv1beta1.ServiceBindingServiceReference{
+						APIVersion: "service.local/v1",
+						Kind:       "ProvisionedService",
+						Name:       "my-service",
+					},
+				},
 			},
 			expectedErr: true,
 		},
@@ -425,7 +447,7 @@ func TestClusterResolver_LookupBindingSecret(t *testing.T) {
 				Build()
 			resolver := resolver.New(client)
 
-			actual, err := resolver.LookupBindingSecret(ctx, c.serviceRef)
+			actual, err := resolver.LookupBindingSecret(ctx, c.serviceBinding)
 
 			if (err != nil) != c.expectedErr {
 				t.Errorf("LookupBindingSecret() expected err: %v", err)
@@ -447,25 +469,29 @@ func TestClusterResolver_LookupWorkloads(t *testing.T) {
 	bindingUID := uuid.NewUUID()
 
 	tests := []struct {
-		name         string
-		givenObjects []client.Object
-		serviceRef   corev1.ObjectReference
-		selector     *metav1.LabelSelector
-		bindingUID   types.UID
-		expected     []runtime.Object
-		expectedErr  bool
+		name           string
+		givenObjects   []client.Object
+		serviceBinding *servicebindingv1beta1.ServiceBinding
+		expected       []runtime.Object
+		expectedErr    bool
 	}{
 		{
 			name:         "not found",
 			givenObjects: []client.Object{},
-			serviceRef: corev1.ObjectReference{
-				APIVersion: "apps/v1",
-				Kind:       "Deployment",
-				Namespace:  "my-namespace",
-				Name:       "my-workload",
+			serviceBinding: &servicebindingv1beta1.ServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "my-namespace",
+					UID:       bindingUID,
+				},
+				Spec: servicebindingv1beta1.ServiceBindingSpec{
+					Workload: servicebindingv1beta1.ServiceBindingWorkloadReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "my-workload",
+					},
+				},
 			},
-			bindingUID: bindingUID,
-			expected:   []runtime.Object{},
+			expected: []runtime.Object{},
 		},
 		{
 			name: "found previously bound workload",
@@ -480,13 +506,19 @@ func TestClusterResolver_LookupWorkloads(t *testing.T) {
 					},
 				},
 			},
-			serviceRef: corev1.ObjectReference{
-				APIVersion: "apps/v1",
-				Kind:       "Deployment",
-				Namespace:  "my-namespace",
-				Name:       "my-workload",
+			serviceBinding: &servicebindingv1beta1.ServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "my-namespace",
+					UID:       bindingUID,
+				},
+				Spec: servicebindingv1beta1.ServiceBindingSpec{
+					Workload: servicebindingv1beta1.ServiceBindingWorkloadReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "my-workload",
+					},
+				},
 			},
-			bindingUID: bindingUID,
 			expected: []runtime.Object{
 				&unstructured.Unstructured{
 					Object: map[string]interface{}{
@@ -526,13 +558,19 @@ func TestClusterResolver_LookupWorkloads(t *testing.T) {
 					},
 				},
 			},
-			serviceRef: corev1.ObjectReference{
-				APIVersion: "apps/v1",
-				Kind:       "Deployment",
-				Namespace:  "my-namespace",
-				Name:       "my-workload",
+			serviceBinding: &servicebindingv1beta1.ServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "my-namespace",
+					UID:       bindingUID,
+				},
+				Spec: servicebindingv1beta1.ServiceBindingSpec{
+					Workload: servicebindingv1beta1.ServiceBindingWorkloadReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "my-workload",
+					},
+				},
 			},
-			bindingUID: bindingUID,
 			expected: []runtime.Object{
 				&unstructured.Unstructured{
 					Object: map[string]interface{}{
@@ -573,13 +611,19 @@ func TestClusterResolver_LookupWorkloads(t *testing.T) {
 					},
 				},
 			},
-			serviceRef: corev1.ObjectReference{
-				APIVersion: "workload.local/v1",
-				Kind:       "MyWorkload",
-				Namespace:  "my-namespace",
-				Name:       "my-workload",
+			serviceBinding: &servicebindingv1beta1.ServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "my-namespace",
+					UID:       bindingUID,
+				},
+				Spec: servicebindingv1beta1.ServiceBindingSpec{
+					Workload: servicebindingv1beta1.ServiceBindingWorkloadReference{
+						APIVersion: "workload.local/v1",
+						Kind:       "MyWorkload",
+						Name:       "my-workload",
+					},
+				},
 			},
-			bindingUID: bindingUID,
 			expected: []runtime.Object{
 				&unstructured.Unstructured{
 					Object: map[string]interface{}{
@@ -624,17 +668,23 @@ func TestClusterResolver_LookupWorkloads(t *testing.T) {
 					},
 				},
 			},
-			serviceRef: corev1.ObjectReference{
-				APIVersion: "apps/v1",
-				Kind:       "Deployment",
-				Namespace:  "my-namespace",
-			},
-			selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app": "my",
+			serviceBinding: &servicebindingv1beta1.ServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "my-namespace",
+					UID:       bindingUID,
+				},
+				Spec: servicebindingv1beta1.ServiceBindingSpec{
+					Workload: servicebindingv1beta1.ServiceBindingWorkloadReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Selector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": "my",
+							},
+						},
+					},
 				},
 			},
-			bindingUID: bindingUID,
 			expected: []runtime.Object{
 				&unstructured.Unstructured{
 					Object: map[string]interface{}{
@@ -733,17 +783,23 @@ func TestClusterResolver_LookupWorkloads(t *testing.T) {
 					},
 				},
 			},
-			serviceRef: corev1.ObjectReference{
-				APIVersion: "workload.local/v1",
-				Kind:       "MyWorkload",
-				Namespace:  "my-namespace",
-			},
-			selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app": "my",
+			serviceBinding: &servicebindingv1beta1.ServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "my-namespace",
+					UID:       bindingUID,
+				},
+				Spec: servicebindingv1beta1.ServiceBindingSpec{
+					Workload: servicebindingv1beta1.ServiceBindingWorkloadReference{
+						APIVersion: "workload.local/v1",
+						Kind:       "MyWorkload",
+						Selector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": "my",
+							},
+						},
+					},
 				},
 			},
-			bindingUID: bindingUID,
 			expected: []runtime.Object{
 				&unstructured.Unstructured{
 					Object: map[string]interface{}{
@@ -785,7 +841,7 @@ func TestClusterResolver_LookupWorkloads(t *testing.T) {
 				Build()
 			resolver := resolver.New(client)
 
-			actual, err := resolver.LookupWorkloads(ctx, c.serviceRef, c.selector, c.bindingUID)
+			actual, err := resolver.LookupWorkloads(ctx, c.serviceBinding)
 
 			if (err != nil) != c.expectedErr {
 				t.Errorf("LookupWorkloads() expected err: %v", err)
