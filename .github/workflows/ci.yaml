@@ -341,8 +341,8 @@ jobs:
     - name: Checkout conformance tests
       uses: actions/checkout@v4
       with:
-        repository: servicebinding/conformance.git
-        ref: v0.3.1
+        repository: scothis/conformance.git
+        ref: focus
         fetch-depth: 1
         path: conformance-tests
 
